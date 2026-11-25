@@ -1,0 +1,616 @@
+---
+name: latex-paper-writing
+description: A standardized workflow for writing academic papers in LaTeX, covering project layout, the shared preamble (packages, color theme, math macros), references, figures, and tables. AI-added BibTeX entries go only into bib/ai.bib, each annotated with its online source and a summary, never written from memory. Figures are plotted in figures/figures.ipynb or drawn in TikZ at the template's exact physical width with LaTeX-rendered text and theme colors, with unified font sizes and every plot's data saved as a TikZ-ready .csv file in figures/data/. Tables are fitted by editing content and spacing, with resizebox only as a last resort. Also covers adapting a finished paper for resubmission to another journal (journal template, citing the target journal, length per its author guidelines). Use whenever writing or editing a LaTeX paper, adding citations or .bib entries, creating figures or tables for a paper, or moving a paper to a new journal.
+---
+
+# LaTeX Paper Writing
+
+A standardized workflow for writing a paper in LaTeX. Every paper follows the same layout and rules, so humans and agents always know where things are and how they were produced.
+
+## Project Layout
+
+```text
+paper/
+├── main.tex
+├── preamble.tex          # all packages, colors, and math macros
+├── bib/
+│   ├── refs.bib          # entries found by humans
+│   └── ai.bib            # entries added by AI only
+├── figures/
+│   ├── figures.ipynb     # all plotting code
+│   ├── <name>.tikz       # TikZ figures (e.g. teaser.tikz), \input by main.tex
+│   ├── data/             # plotted values, one <name>.csv per figure
+│   └── <name>-crop.pdf   # cropped figures, included in the paper
+└── references/            # LaTeX sources of exemplar papers, read-only
+```
+
+**Rule: all text stays in `main.tex`.** Never split sections (introduction, method, experiments, appendix, ...) into separate `.tex` files. The only other source files are `preamble.tex` and the `.tikz` figures in `figures/`. (The rebuttal `response.tex` is a separate document, not part of the paper.)
+
+When a figure is split out, only its drawing goes into the figure file. The `figure` environment, `\centering`, `\caption`, and `\label` all stay in `main.tex`:
+
+```latex
+% main.tex
+\begin{figure}[t]
+  \centering
+  \input{figures/teaser.tikz}   % only the drawing
+  \caption{Overview of our method. ...}
+  \label{fig:teaser}
+\end{figure}
+```
+
+```latex
+% figures/teaser.tikz: just the tikzpicture, no figure environment, caption, or label
+\begin{tikzpicture}
+  ...
+\end{tikzpicture}
+```
+
+Figures plotted in Python are not wrapped in a `.tex` file at all; `main.tex` includes their PDF directly with `\includegraphics`.
+
+`.gitignore` ignores all PDFs, so the compiled paper is never committed; the only exception is the cropped figures. It also ignores `references/`, because other authors' sources are not ours to redistribute:
+
+```gitignore
+*.pdf
+!figures/*-crop.pdf
+references/
+```
+
+## Preamble
+
+All shared LaTeX setup lives in one file, `preamble.tex`: packages, the color theme, and math notation.
+
+**Rules:**
+
+- Load `preamble.tex` in `main.tex` right after the template, so the template's own settings come first:
+
+  ```latex
+  \documentclass[10pt,twocolumn,letterpaper]{article}
+  \usepackage[review]{cvpr}   % the venue template
+  \input{preamble}
+  ```
+
+- **One home for setup:** no `\usepackage`, `\definecolor`, or `\newcommand` anywhere else in the paper.
+- **Template first:** do not reload packages the template already loads with different options, and do not override its layout (margins, fonts, spacing). Leave template-specific settings in `main.tex`.
+- **Notation as macros:** every math symbol of the paper is a macro in the math notation block, so notation is defined once and can be changed in one place (see Math Notation).
+  - Use `\newcommand`, never `\def`, so a name clash is an error rather than a silent override.
+  - Use `\DeclareMathOperator` for operators.
+
+```latex
+% ---- packages ----
+\usepackage{amsmath,amssymb}
+\usepackage{bm}           % bold italic vectors and matrices, incl. Greek
+\usepackage{graphicx}
+\usepackage{overpic}    % LaTeX labels and math on top of images
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{makecell}   % line breaks inside table cells
+\usepackage{tikz}
+\usepackage{pgfplots}     % redraw figures from their .csv files
+\pgfplotsset{compat=1.18}
+\usepackage{gradbars}   % compact bars and sparklines in tables and text
+\usepackage[capitalize]{cleveref}  % cross-references; load after hyperref
+
+% ---- color theme (see Theme and Colors) ----
+\definecolor{ourscolor}{HTML}{0866FF}   % our method
+% ...
+
+% ---- math notation: every symbol is defined here, and only here (keep this block last) ----
+\newcommand{\R}{\mathbb{R}}                    % real numbers
+\newcommand{\vx}{\bm{x}}                       % input vector, \R^{D}
+\newcommand{\mW}{\bm{W}}                       % weight matrix, \R^{D \times D}
+\newcommand{\sD}{\mathcal{D}}                  % training set
+\newcommand{\Lcls}{\mathcal{L}_{\text{cls}}}   % classification loss
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator{\softmax}{softmax}
+```
+
+## Math Notation
+
+**Rule:** notation is as rigorous as in a linear algebra textbook, following ISO 80000-2 and the ICLR `math_commands.tex`.
+
+- **One definition per symbol.** Every math symbol is a macro in `preamble.tex`, with its meaning and shape in a comment. Never define or redefine a symbol anywhere else.
+- **Use the macro everywhere:** text, equations, tables, and figures (matplotlib loads the same macros). Never hand-type `\bm{W}` where `\mW` exists.
+- **One symbol, one meaning,** and one quantity, one symbol.
+
+| Object | Typeface | Example |
+|---|---|---|
+| Scalar | italic | $x$, $N$, $\lambda$ |
+| Vector | bold italic lowercase | `\bm{x}`, `\bm{\mu}` |
+| Matrix | bold italic uppercase | `\bm{W}` |
+| Element of a vector or matrix | italic, not bold | $x_i$, $W_{ij}$ |
+| Set, dataset | calligraphic | `\mathcal{D}` |
+| Number set | blackboard bold | `\mathbb{R}^{N \times D}` |
+| Operator | upright | `\softmax`, `\log` |
+| Transpose | `^\top` | `\mW^\top`, never `\mW^T` |
+
+- Use `\bm`, not `\mathbf`: `\mathbf{\mu}` is not bold.
+- Word subscripts are upright: `\mathcal{L}_{\text{cls}}`, not `\mathcal{L}_{cls}`.
+- Never resize math by hand (`\small`, `\scriptstyle`).
+
+**Use the symbols throughout the paper.** Once the method defines a symbol, refer to it wherever its value or role comes up, so readers can connect the text to the method. For example, if the method defines the number of layers $L$, the experiments should say: "We use ViT-B with 12 layers ($L = 12$)." Likewise, write "the loss weight $\lambda$ in Eq. (3) is set to 0.1", not just "the loss weight is 0.1".
+
+## Source Formatting
+
+Format the `.tex` source so that diffs, reviews, and comments work sentence by sentence.
+
+**Rules:**
+
+1. **One sentence per line block.** After every sentence ending (`.`, `!`, `?`), break the line and add a line containing only `%`. The `%` line separates sentences visually without starting a new paragraph, as a truly blank line would. Abbreviations such as `e.g.`, `i.e.`, `et al.`, and `Fig.` do not end a sentence.
+2. **Lines at most 120 characters.** Wrap a long sentence with a plain line break (no `%`) at a natural point, such as after a comma or at the end of a clause or phrase. Never break inside a command, its arguments, or inline math.
+3. **Paragraphs** are still separated by one truly blank line.
+
+```latex
+Vision Transformers split an image into patches and process them as a sequence of tokens,
+which makes self-attention cost grow quadratically with the number of patches.
+%
+We propose a token pruning method that keeps only the most informative tokens at each layer.
+%
+On ImageNet, it reduces FLOPs by 40\% with less than 0.5\% accuracy drop.
+%
+
+Our contributions are as follows.
+%
+```
+
+## Cross-References
+
+**Rule:** use cleveref (`\cref`, or `\Cref` at the start of a sentence) for cross-references.
+
+## Experiments
+
+### Thorough, Method-Specific Analysis
+
+**Rule:** experiments must be thorough. End-to-end comparisons with the state of the art are necessary but not enough. More important are analytical, targeted experiments on what is specific to our method: they probe its behaviour from different angles, and use the results to verify and explain that behaviour.
+
+1. **List the method's specific behaviours.** From the method section, write down what each key design is supposed to do and why it should work (e.g. "the gate suppresses background tokens", "the auxiliary loss makes features more separable").
+2. **Design an experiment for each,** that tests whether the behaviour really happens and explains the result.
+3. **Look from several angles,** for example:
+   - **Ablations:** remove or replace each component, and compare with alternative designs for it.
+   - **Probing internal behaviour:** visualize or measure intermediate quantities (attention maps, gate values, learned weights, feature statistics) across layers, training steps, or inputs, and check they behave as the method claims.
+   - **Varying conditions:** model size, data size, resolution or sequence length, difficulty levels, and distribution shift. Show where the method helps most and why.
+   - **Sensitivity:** to key hyperparameters.
+   - **Cost:** parameters, FLOPs, memory, and runtime, and the accuracy–efficiency trade-off.
+   - **Generality:** other backbones, datasets, or tasks, or plugged into other methods.
+   - **Qualitative results:** representative examples next to the baselines.
+   - **Failure cases:** where the method does not help, and why.
+   - **Theory and practice:** if the method makes a theoretical claim, check it empirically.
+4. **Report reliably:** run several seeds for small differences, and report mean and standard deviation.
+
+### Write-up
+
+**Rule:** every individual experiment starts with `\paragraph{<name>.}`, and its description follows one fixed format.
+
+- **One `\paragraph` per experiment.** Use it for every small experiment in the experiments section: no `\subsubsection`, and no run-in `\textbf{Results on MM-Vet.}` headings. Replace all of them with `\paragraph`.
+- **Descriptive, direct names** that say what the experiment is about, e.g. `\paragraph{Gated fusion vs. simple fusion.}`, not `\paragraph{Analysis.}`.
+
+Each experiment follows this order:
+
+1. **Why:** the purpose, i.e. what the experiment verifies, e.g. "To verify that our X improves Y, we ...". It is optional for the main results, since comparing overall performance needs no justification.
+2. **What and how:** what we did and how: the data and settings, and what is compared. Explain complex settings in full.
+3. **Results,** in a new paragraph: what the numbers show, pointing to the table or figure ("As shown in \cref{tab:gate}, ...").
+4. **Analysis and conclusion:** what the results imply. A conclusion is not "X is 2.1 points higher than Y"; that is a number. It is what the numbers mean, e.g. "X is better suited to Y", or a hypothesis that explains them, stated as a hypothesis.
+
+Steps 1–2 form the first paragraph. The results and analysis can be as long as needed, over several paragraphs, as long as they follow this order.
+
+```latex
+\paragraph{Gated fusion vs. simple fusion.}
+To verify that the gated fusion in \cref{sec:gate} improves the accuracy on small objects,
+we compare it with plain addition and concatenation on COCO \texttt{val}.
+%
+All variants use the same backbone and training schedule, and we report AP on small objects (AP$_S$).
+%
+
+As shown in \cref{tab:gate}, gated fusion improves AP$_S$ by 2.1 points over plain addition,
+while the overall AP changes by less than 0.3.
+%
+This indicates that the gate mainly helps where fine details are easily drowned out by the background.
+%
+We conjecture that the gate learns to suppress background features that dominate small objects.
+%
+```
+
+## Conclusion
+
+**Rule:** the conclusion is not a copy of the abstract. Write it in the past tense, in this order:
+
+1. what we did and our contributions;
+2. what it achieved, its benefits, and its impact;
+3. its limitations and future work. In a conference paper, one sentence is enough for both.
+
+State the results and their impact directly. Do not write "experimental results demonstrate that ..." as in an abstract: the evidence was already shown. Every statement must still be supported by the experiments, within their scope (e.g. "on ImageNet").
+
+```latex
+In this paper, we proposed a token pruning method that kept only the most informative tokens at each layer.
+%
+It reduced the FLOPs of ViT-B by 40\% with less than 0.5\% accuracy drop,
+making Vision Transformers practical on edge devices.
+%
+Its pruning ratio is currently fixed per layer, and learning it adaptively is left for future work.
+%
+```
+
+## References
+
+**Rules:**
+
+- All `.bib` files live in `bib/`.
+- Entries added by AI go only into `bib/ai.bib`, never mixed with entries found by humans (e.g. `bib/refs.bib`). Likewise, never move human-found entries into `bib/ai.bib`.
+- Every entry in `bib/ai.bib` must cite a verifiable online source. Never fabricate or reconstruct an entry from memory.
+
+### Adding an Entry
+
+1. **Find the work online.** Use DOI, the publisher's page, arXiv, DBLP, ACL Anthology, OpenReview, or Semantic Scholar. Confirm the title, authors, venue, and year match.
+2. **Take the metadata from that source,** preferably its official BibTeX export (publisher, DBLP, or arXiv), not from memory. If a peer-reviewed version exists, cite it instead of the preprint.
+3. **Annotate the entry.** Directly above each entry, add `%` comments with:
+   - `Source:` the link to the page where the work was found and its metadata verified;
+   - `Summary:` 2–3 sentences on what the paper does and its main contribution, based on the source (abstract or paper), not memory.
+
+   The entry itself must also have a `doi` or `url`. Keep `@` out of the comments, because BibTeX parses it as the start of an entry.
+
+```bibtex
+% Source: https://proceedings.neurips.cc/paper/2017/hash/3f5ee243547dee91fbd053c1c4a845aa-Abstract.html
+% Summary: Proposes the Transformer, a sequence transduction model built solely on attention,
+% with no recurrence or convolution. It is more parallelizable and faster to train than
+% recurrent and convolutional encoder-decoders, and sets new results on WMT 2014 translation.
+@inproceedings{vaswani2017attention,
+  title     = {Attention Is All You Need},
+  author    = {Vaswani, Ashish and Shazeer, Noam and Parmar, Niki and Uszkoreit, Jakob and
+               Jones, Llion and Gomez, Aidan N. and Kaiser, {\L}ukasz and Polosukhin, Illia},
+  booktitle = {Advances in Neural Information Processing Systems},
+  volume    = {30},
+  year      = {2017},
+  url       = {https://proceedings.neurips.cc/paper/2017/hash/3f5ee243547dee91fbd053c1c4a845aa-Abstract.html}
+}
+```
+
+4. **Write only to `bib/ai.bib`.** Never edit the authors' own `.bib` files. If the work is already in another `.bib` file, reuse its existing key instead of adding a duplicate.
+5. **Make sure the paper loads it:** `\bibliography{..., bib/ai}` or `\addbibresource{bib/ai.bib}`.
+
+### If a Reference Cannot Be Verified
+
+Do not add it, and do not cite a placeholder key. Tell the user which claim needs a citation and what you searched for.
+
+## Theme and Colors
+
+The whole paper follows one **color coding**: a single theme in which each color has one fixed meaning, applied everywhere. This covers plots, TikZ diagrams, the method overview figure, table highlights, and colored text. The figures in particular must look consistent: once readers learn which color means our method, they can recognize it in every figure without checking the legend.
+
+- **Define once.** Define a small palette (4–6 colors) once in `preamble.tex` with `\definecolor`. This is the single source of truth. The colors themselves are free to choose; name each one by its meaning (e.g. `ourscolor`), not by its hue.
+- **Fixed meanings.** Each color has one meaning everywhere, in every matplotlib plot, TikZ diagram, and table highlight. For example, if one color marks our method's results, it marks them in every figure and table of the paper (curves, bars, dots, diagram blocks, highlighted numbers); never switch our method to another color, and never reuse that color for anything else.
+- **Restrained, not flashy.** Use few, muted colors. Draw most elements in neutral gray or black, and reserve the strong accent color for what matters, usually our method. Avoid rainbow palettes, saturated color mixes, gradients, and decorative color.
+- **No ad-hoc colors.** Do not use matplotlib's default color cycle or hard-coded hex values. matplotlib reads the palette from `preamble.tex` (see the first cell below), and TikZ uses the names directly (`\draw[ourscolor]`).
+- **Readable without color.** Pick colors that stay distinguishable for color-blind readers and in grayscale print. Also vary markers or line styles, so meaning never relies on color alone.
+
+```latex
+% ---- color theme in preamble.tex: one fixed meaning per color, used everywhere ----
+% example values; pick your own, but keep each meaning fixed
+\definecolor{ourscolor}{HTML}{0866FF}       % our method
+\definecolor{basecolor}{HTML}{8C8C8C}       % baselines
+\definecolor{highlightcolor}{HTML}{E8710A}  % strongest competitor / highlight
+\definecolor{ablationcolor}{HTML}{1E8E3E}   % ablation variants
+\definecolor{revcolor}{HTML}{0000FF}        % revised text (see Submission and Revision)
+```
+
+## Figures
+
+**Rules:**
+
+- All figure files live in `figures/`.
+- Figures can be plotted with Python or drawn with TikZ (one `figures/<name>.tikz` per figure).
+- **One figure, one file, at most two layers.** This applies to every figure, not just the teaser. Each TikZ figure (diagram, teaser, pgfplots plot) is one file, `figures/<name>.tikz`, containing only the `tikzpicture`, and `main.tex` simply `\input`s it inside a `figure` environment that keeps the caption and label (see Project Layout). Never nest deeper:
+  - a figure file must not `\input` or `\include` other files;
+  - do not put a `tikzpicture` inside a node of another `tikzpicture`; use `scope` or `pic` instead.
+- If figures are plotted with Python, all plotting code goes in a single notebook, `figures/figures.ipynb`.
+- Its first cell sets the fonts, renders all text with LaTeX, and defines the physical figure widths.
+- **Every data figure has a `.csv` file.** Bar plots, curve plots, scatter plots, heat maps, and any other figure drawn from numbers save their original plotted values to `figures/data/<name>.csv`, whichever tool draws them (Python, MATLAB, R, gnuplot, a spreadsheet, ...). The file must be enough to redraw the figure in LaTeX with TikZ/pgfplots, without the original program (see Plot Data Files).
+  - The plotting code reads this file, so values can be changed at any time without rerunning experiments.
+  - This means the final evaluated numbers the plot draws, as evaluated and not rounded for display: point and curve coordinates, bar heights, heat map cells, metrics.
+  - It does not mean experiment logs or model outputs. For face recognition, store the evaluated accuracy per setting, not every per-sample prediction.
+- Font sizes are only meaningful once the physical width is fixed. So each figure uses the exact width it will occupy on the page, and is included in LaTeX without scaling.
+
+**Measure the widths from the paper's template.** Never assume them; they differ between templates. Put this after `\begin{document}`, compile, and read the values from the log:
+
+```latex
+\typeout{columnwidth=\the\columnwidth, textwidth=\the\textwidth}
+```
+
+Convert TeX points to inches with `1in = 72.27pt`.
+
+**First cell of `figures/figures.ipynb`** (example for CVPR):
+
+```python
+import re
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# ---- color theme: read from preamble.tex, the single source of truth ----
+COLORS = {
+    name: "#" + code
+    for name, code in re.findall(
+        r"\\definecolor\{(\w+)\}\{HTML\}\{([0-9A-Fa-f]{6})\}",
+        Path("../preamble.tex").read_text(),
+    )
+}  # usage: ax.plot(x, y, color=COLORS["ourscolor"], label="Ours")
+
+# ---- math notation: the same macros as the paper, e.g. ax.set_ylabel(r"$\Lcls$") ----
+MATH_MACROS = Path("../preamble.tex").read_text().split("% ---- math notation")[1]
+
+# ---- CVPR two-column layout (measured from the compiled paper) ----
+# \columnwidth = 237.13594pt, \textwidth = 496.85625pt; 1in = 72.27 TeX pt
+COLUMN_WIDTH = 237.13594 / 72.27   # 3.281 in, single-column figure
+TEXT_WIDTH = 496.85625 / 72.27     # 6.875 in, full-width figure*
+# unified font sizes (see Font Sizes); CVPR body text is 10pt
+FONTSIZE = 10         # axis labels and titles: the paper's body size
+SMALL_FONTSIZE = 9    # tick labels and legends: one point smaller
+
+plt.rcParams.update({
+    "text.usetex": True,
+    "font.family": "serif",
+    # match the paper's fonts (CVPR uses Times)
+    "text.latex.preamble": r"\usepackage{amsmath}\usepackage{newtxtext,newtxmath}\usepackage{bm}"
+                           + "\n% ---- math notation" + MATH_MACROS,
+    # every text element uses one of the two sizes
+    "font.size": FONTSIZE,
+    "axes.labelsize": FONTSIZE,
+    "axes.titlesize": FONTSIZE,
+    "figure.titlesize": FONTSIZE,
+    "xtick.labelsize": SMALL_FONTSIZE,
+    "ytick.labelsize": SMALL_FONTSIZE,
+    "legend.fontsize": SMALL_FONTSIZE,
+    "legend.title_fontsize": SMALL_FONTSIZE,
+    # keep the figure exactly at its figsize when saved (no tight bbox cropping)
+    "figure.constrained_layout.use": True,
+    "savefig.bbox": None,
+})
+```
+
+**For each figure:**
+
+1. Use one cell per figure. It loads that figure's data with `pd.read_csv("data/<name>.csv")` and uses `figsize=(COLUMN_WIDTH, h)` for a single-column `figure` or `(TEXT_WIDTH, h)` for a full-width `figure*`.
+2. End the cell by saving it as vector PDF next to the notebook and cropping the white margins automatically:
+
+   ```python
+   fn = "bar.pdf"
+   fig.savefig(fn)
+   plt.show()
+   !pdfcrop --margins=0 {fn}
+   ```
+
+   `pdfcrop` writes `bar-crop.pdf`. This cropped file is the one that is committed and included; `bar.pdf` is an ignored intermediate.
+3. Include it at that width. Cropping removes only a thin margin, so the scale stays close to 1 and fonts print at about their set sizes: `\includegraphics[width=\columnwidth]{figures/<name>-crop.pdf}` (or `\textwidth`).
+
+### Teaser Figure
+
+The teaser illustrates the overall framework and pipeline of the method.
+
+1. **Read the paper first.** Read the abstract, introduction, and method section, and the code if there is any, to understand the method's pipeline.
+2. **Draw the pipeline with TikZ.**
+   - Write it in `figures/teaser.tikz` and `\input{figures/teaser.tikz}` in `main.tex`, following the one-file, two-layer rule in Figures.
+   - Load TikZ libraries in `preamble.tex`, use the theme color names, and write math with the macros from `preamble.tex`.
+   - Size it to `\columnwidth` or `\textwidth` through node and picture dimensions, not `\resizebox` or `scale`, which change the font size.
+   - Place example images with `\node {\includegraphics[...]{...}};`.
+3. **Fonts.** Use the document's font style and body size; do not use size commands such as `\tiny`, `\footnotesize`, or `\large`. The only exception: key concepts and subfigure titles may be larger and bold, e.g. `\large\bfseries`.
+
+### Font Sizes
+
+**Rule:** text in every figure matches the paper, using exactly two sizes. Font size is relative to figure size, so an oversized figure shrinks its text once it is placed on the page, however large the font values are.
+
+1. **Set the figure width first.** It must equal the figure's final width in the document (see the measured `COLUMN_WIDTH` and `TEXT_WIDTH` above).
+2. **Then set the two sizes globally,** based on the paper's body font size:
+
+   | Text element | Size | For a 10pt paper | matplotlib keys |
+   |---|---|---|---|
+   | Default text, axis labels, titles | body size | 10 | `font.size`, `axes.labelsize`, `axes.titlesize`, `figure.titlesize` |
+   | Tick labels, legends | one point smaller | 9 | `xtick.labelsize`, `ytick.labelsize`, `legend.fontsize`, `legend.title_fontsize` |
+
+- **Set sizes in one place.** In matplotlib, use the `rcParams` in the first cell. Do not pass `fontsize=` to individual calls, so all figures stay identical.
+- **Same sizes in every tool.** A figure from MATLAB, R, or anything else uses the same physical width and the same two sizes.
+- **Never fix text size by scaling the figure in LaTeX.** Change the figure size or the two constants instead.
+
+### Plot Data Files
+
+**Format of `figures/data/<name>.csv`,** so that pgfplots can read it directly:
+
+- Plain text, columns separated by commas, one header row of column names.
+- Column names and category labels use only letters, digits, and hyphens (e.g. `ViT-B`). pgfplots does not understand CSV quoting, so a comma inside a label splits the column, and LaTeX special characters such as `_` break in TikZ.
+- Write missing values as `nan`.
+- Heat maps use long format, one cell per row: `x,y,value`, ordered row by row.
+
+`figures/data/loss.csv` (curve or scatter):
+
+```text
+epoch,ours,baseline
+1,0.91,1.02
+2,0.62,0.84
+3,0.47,0.73
+```
+
+`figures/data/acc.csv` (bar):
+
+```text
+method,acc
+ResNet,76.1
+ViT-B,81.3
+Ours,84.2
+```
+
+**Saving from Python** (other tools write the same format):
+
+```python
+df = pd.DataFrame({"epoch": epochs, "ours": ours, "baseline": baseline})
+df.to_csv("data/loss.csv", index=False, na_rep="nan")
+```
+
+**Redrawing in LaTeX,** which must work from the `.csv` file alone, with `col sep=comma` on every table:
+
+```latex
+\begin{tikzpicture}
+\begin{axis}[width=\columnwidth, height=4cm, xlabel={Epoch}, ylabel={Loss}]
+  \addplot[ourscolor, mark=*] table[col sep=comma, x=epoch, y=ours] {figures/data/loss.csv};         % curve
+  \addplot[basecolor, only marks] table[col sep=comma, x=epoch, y=baseline] {figures/data/loss.csv}; % scatter
+\end{axis}
+\end{tikzpicture}
+
+\begin{tikzpicture}
+\begin{axis}[ybar, symbolic x coords={ResNet,ViT-B,Ours}, xtick=data]
+  \addplot[fill=ourscolor] table[col sep=comma, x=method, y=acc] {figures/data/acc.csv};          % bar
+\end{axis}
+\end{tikzpicture}
+
+\begin{tikzpicture}
+\begin{axis}[colorbar, point meta min=0, point meta max=1]
+  \addplot[matrix plot*, mesh/cols=3, point meta=explicit]                        % heat map, 3 columns
+    table[col sep=comma, x=x, y=y, meta=value] {figures/data/heat.csv};
+\end{axis}
+\end{tikzpicture}
+```
+
+## Tables
+
+**Rule:** use `\resizebox`, `\scalebox`, or `adjustbox` to fit a table only as a last resort. Scaling changes the font size, so text no longer matches the paper or the other tables.
+
+First, fit the table by changing its content and spacing, in this order:
+
+1. **Find what makes it too wide.** Often a single long cell or header stretches its column and the whole table.
+2. **Break long cell content into lines,** with `p{<width>}` columns or `\makecell{first\\second}`.
+3. **Shorten the text:** abbreviate headers (define them in the caption), drop redundant words or units, and round numbers to meaningful precision.
+4. **Reduce column spacing,** e.g. `\setlength{\tabcolsep}{4pt}` inside the table environment.
+
+If the table still does not fit after all of these, scale it with `\resizebox{\columnwidth}{!}{...}` (or `\textwidth`), as close to 1 as possible.
+
+Fit figures by drawing them at the right physical size (see Figures), not by scaling.
+
+## Reference Papers
+
+Before and while writing, study a few exemplar papers and follow their structure and writing style.
+
+- **Choose 3–5 papers** in the same field and a similar direction, from top groups (e.g. MIT, Stanford, CMU, Berkeley), preferably recent and published at the target venue.
+- **Download their LaTeX sources from arXiv** into `references/`, one folder per paper:
+
+  ```bash
+  id=2010.11929
+  mkdir -p references/$id && curl -sL https://arxiv.org/src/$id | tar -xz -C references/$id
+  ```
+
+  If `tar` fails, the source is a single gzipped `.tex` file: `curl -sL https://arxiv.org/src/$id | gunzip > references/$id/main.tex`.
+- **Learn from them:**
+  - section structure and length;
+  - how the introduction builds up to the contributions;
+  - paragraph flow and how claims are supported;
+  - figure and table design, captions, and notation.
+- **Never copy text.** Reference papers are models for structure and style, not sources of sentences. Do not `\input` them or reuse their wording.
+
+
+## Submission and Revision
+
+**Tag every milestone.** After each submission, tag the exact submitted version so it can always be recovered and compared against. Git tag names cannot contain spaces, so use hyphens:
+
+```bash
+git tag -a initial-submission -m "Initial submission to <venue>"
+git tag -a revision-1 -m "Revision 1"
+git push origin --tags
+```
+
+**During revision,** highlight every change, and build a marked and a clean PDF from the same source.
+
+1. Define a conditional highlight command in `preamble.tex`:
+
+   ```latex
+   \ifdefined\marked
+     \newcommand{\rev}[1]{{\color{revcolor}#1}}
+   \else
+     \newcommand{\rev}[1]{#1}
+   \fi
+   ```
+
+2. Wrap every changed or added piece of text in `\rev{...}`: sentences, table cells, and figure and table captions. For a new or redrawn figure or table, highlight its caption.
+3. Build the marked version, with changes in `revcolor`, as `marked.pdf`:
+
+   ```bash
+   latexmk -pdf -shell-escape -jobname=marked -usepretex='\def\marked{}' main.tex
+   ```
+
+   A plain `latexmk -pdf main.tex` builds the clean version, without highlighting.
+4. Before sending the revision, make sure nothing is missed. Compare against the previous tag with `git diff initial-submission -- '*.tex'`, and check that every change is inside `\rev{}`.
+
+## Resubmitting to Another Journal
+
+Use this when a finished paper moves to a new journal: after a rejection, after a withdrawal, or as an extended version (e.g. of a conference paper). The paper must be adapted to the new journal, not just recompiled in its template.
+
+Before changing anything, tag the current version (see Submission and Revision), e.g. `git tag -a before-tpami -m "Before resubmission to TPAMI"`.
+
+### Template and Files
+
+- **The user downloads the journal's LaTeX template** from its official site and names the main file after the journal, `<journal>.tex` in lowercase (e.g. `tpami.tex`, `tip.tex`). Never write or reconstruct a template from memory. If it is missing, ask the user for it.
+- **`<journal>.tex` replaces `main.tex`** as the file that holds all text. Move the text into it section by section; the "all text stays in one file" rule still applies. Keep the old main file unchanged as a record of the previous submission.
+- **Reuse `bib/`, `preamble.tex`, and `figures/`.** Do not copy or rebuild the `.bib` files. Drop only the packages that clash with the new template's class, and use the journal's bibliography style (e.g. `IEEEtran`).
+- **Re-measure the layout.** Column and text widths change with the template, so re-measure them from the compiled paper and redraw the figures at the new physical width (see Figures). Re-fit the tables.
+- **Remove traces of the previous venue:** its name, its anonymization or line numbers, "under review" notes, and venue-specific statements. Add what the new journal requires instead, e.g. keywords, author biographies and photos, or a data availability statement.
+
+### Citing the Target Journal
+
+Many journals expect a submission to cite related work published in the journal itself.
+
+- **Number:** about 1/5 of the reference list, and **at least 3 and at most 8** papers from the target journal.
+- **Search the target journal** for papers on the same problem or method, preferably from the last few years (e.g. via its IEEE Xplore, ScienceDirect, or DBLP pages). Only cite papers that are actually relevant; never pad the list with unrelated ones.
+- **Add them to `bib/ai.bib`** with the full verification and annotation (see Adding an Entry). Reuse existing keys for papers that are already in `bib/`.
+- **Cite them where they fit,** in the Related Work or the Introduction, and say how each one relates to our method, as with any other citation.
+- Report to the user which journal papers were added and where.
+
+### Length and Author Guidelines
+
+Search for the journal's current **author guidelines** (information for authors) and check them before editing: page or word limits, overlength page charges, abstract and keyword limits, reference style, required sections and statements, and the review mode (single- or double-anonymous). For an extended version, also check the required amount of new content and whether a summary of differences or cover letter is needed.
+
+Compile the paper in the new template and compare its length with the guidelines.
+
+- **If the paper is too short, propose experiments first,** especially exploratory, explanatory, and analysis experiments that dig into why and when the method works (see Thorough, Method-Specific Analysis), for example visualizations of what a module learns, behavior under varying conditions, and failure cases. Propose them to the user with what each one would show; never invent results, and add an experiment only after it has been run.
+- **Then expand the Introduction and Related Work:** a fuller motivation and gap, and broader, more structured coverage of related work. Never pad with filler or repetition.
+- **If the paper is too long,** move secondary results and details to the appendix or supplementary material, as the journal allows, and tighten the text before cutting content.
+
+## Response
+
+### Structure
+
+Write the response with the [TempLaTeX response template](https://github.com/intcomp/TempLaTeX/blob/main/response.tex).
+
+**Rule:** split each reviewer comment into sub-comments by its logic, quote each one, and answer it directly below the quote.
+
+- **One concern per sub-comment.** Reviewers often combine several questions in one paragraph. Split them into separate sub-comments, numbered by reviewer (e.g. `R1 Comment1`, `R1 Comment2`), so that each one gets its own complete answer.
+- **Quote verbatim.** Put the reviewer's original wording for each sub-comment in a `\cmt{<title>}{<comment>}` box. Do not paraphrase, shorten, or soften it, and never drop any part of the comment.
+- **Answer below the quote.** Put the response to each sub-comment immediately after its box.
+- **State the revision.** If the manuscript was revised because of a sub-comment, end its response with an explicit, highlighted sentence that says where and what changed, referenced by label:
+
+  ```latex
+  \rev{We have revised \cref{M-sec:experiments} of the revised manuscript
+  to add the comparison with X that the reviewer requested.}
+  ```
+
+  Name the exact location (section, table, figure, or equation) and the specific change, matching what the reviewer asked for.
+
+### Referring to Figures, Tables, and Equations
+
+**Rule:** every reference to a figure, table, equation, or section in the response must state which document it is in, so reviewers never have to guess.
+
+| Where the item is | How to refer to it |
+|---|---|
+| Only in the response | "As shown in Table 5 of this response, ..." |
+| Only in the revised manuscript | "As shown in Figure 3 of the revised manuscript, ..." |
+| In both | Give both numbers: "As shown in Table 5 of this response (also Table 8 of the revised manuscript), ..." |
+| In the original submission (e.g. quoted by a reviewer) | Map it to the new number: "Table 3 of the original submission (now Table 4 of the revised manuscript)" |
+
+- Never write a bare "Table 5" or "Fig. 3" without naming the document.
+- Numbers shift during revision. Numbers that cannot come from labels, such as those of the original submission, must be taken from its compiled PDF.
+- **Never hard-code manuscript numbers.** Reference the manuscript's tables, figures, and equations from the response through their labels, with `\externaldocument`. The numbers then always match the revised manuscript.
+
+  ```latex
+  \usepackage{xr-hyper}        % in response.tex; use xr if hyperref is not loaded
+  \usepackage{hyperref}
+  \usepackage[capitalize]{cleveref}  % same names as in the paper's preamble
+  \externaldocument[M-]{main}  % reads main.aux; prefix M- avoids label clashes
+  ...
+  As shown in \cref{M-tab:ablation} of the revised manuscript, ...
+  ```
+
+  Compile the manuscript first, because `\externaldocument` reads its `.aux` file. Rebuild the response after every manuscript change.

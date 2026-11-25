@@ -11,25 +11,28 @@ A standardized workflow for writing a paper in LaTeX. Every paper follows the sa
 
 ```text
 paper/
-├── main.tex
+├── cvpr.tex              # one main file per venue, named after it
+├── tpami.tex             # e.g. the same work resubmitted to TPAMI
 ├── preamble.tex          # all packages, colors, and math macros
 ├── bib/
 │   ├── refs.bib          # entries found by humans
 │   └── ai.bib            # entries added by AI only
 ├── figures/
 │   ├── figures.ipynb     # all plotting code
-│   ├── <name>.tikz       # TikZ figures (e.g. teaser.tikz), \input by main.tex
+│   ├── <name>.tikz       # TikZ figures (e.g. teaser.tikz), \input by <venue>.tex
 │   ├── data/             # plotted values, one <name>.csv per figure
 │   └── <name>-crop.pdf   # cropped figures, included in the paper
 └── references/            # LaTeX sources of exemplar papers, read-only
 ```
 
-**Rule: all text stays in `main.tex`.** Never split sections (introduction, method, experiments, appendix, ...) into separate `.tex` files. The only other source files are `preamble.tex` and the `.tikz` figures in `figures/`. (The rebuttal `response.tex` is a separate document, not part of the paper.)
+**Rule: the main file is named after its venue, `<venue>.tex` in lowercase** (e.g. `cvpr.tex`, `iccv.tex`, `tpami.tex`), never `main.tex`. The same work is often submitted to several venues, and each one gets its own main file in the same folder, sharing `preamble.tex`, `bib/`, and `figures/`. The file of a past submission is kept unchanged as its record. Below, `<venue>.tex` means the main file of the current submission.
 
-When a figure is split out, only its drawing goes into the figure file. The `figure` environment, `\centering`, `\caption`, and `\label` all stay in `main.tex`:
+**Rule: all text stays in `<venue>.tex`.** Never split sections (introduction, method, experiments, appendix, ...) into separate `.tex` files. The only other source files are `preamble.tex` and the `.tikz` figures in `figures/`. (The rebuttal `response.tex` is a separate document, not part of the paper.)
+
+When a figure is split out, only its drawing goes into the figure file. The `figure` environment, `\centering`, `\caption`, and `\label` all stay in `<venue>.tex`:
 
 ```latex
-% main.tex
+% cvpr.tex
 \begin{figure}[t]
   \centering
   \input{figures/teaser.tikz}   % only the drawing
@@ -45,7 +48,7 @@ When a figure is split out, only its drawing goes into the figure file. The `fig
 \end{tikzpicture}
 ```
 
-Figures plotted in Python are not wrapped in a `.tex` file at all; `main.tex` includes their PDF directly with `\includegraphics`.
+Figures plotted in Python are not wrapped in a `.tex` file at all; `<venue>.tex` includes their PDF directly with `\includegraphics`.
 
 `.gitignore` ignores all PDFs, so the compiled paper is never committed; the only exception is the cropped figures. It also ignores `references/`, because other authors' sources are not ours to redistribute:
 
@@ -61,7 +64,7 @@ All shared LaTeX setup lives in one file, `preamble.tex`: packages, the color th
 
 **Rules:**
 
-- Load `preamble.tex` in `main.tex` right after the template, so the template's own settings come first:
+- Load `preamble.tex` in `<venue>.tex` right after the template, so the template's own settings come first:
 
   ```latex
   \documentclass[10pt,twocolumn,letterpaper]{article}
@@ -70,7 +73,7 @@ All shared LaTeX setup lives in one file, `preamble.tex`: packages, the color th
   ```
 
 - **One home for setup:** no `\usepackage`, `\definecolor`, or `\newcommand` anywhere else in the paper.
-- **Template first:** do not reload packages the template already loads with different options, and do not override its layout (margins, fonts, spacing). Leave template-specific settings in `main.tex`.
+- **Template first:** do not reload packages the template already loads with different options, and do not override its layout (margins, fonts, spacing). Leave template-specific settings in `<venue>.tex`.
 - **Notation as macros:** every math symbol of the paper is a macro in the math notation block, so notation is defined once and can be changed in one place (see Math Notation).
   - Use `\newcommand`, never `\def`, so a name clash is an error rather than a silent override.
   - Use `\DeclareMathOperator` for operators.
@@ -296,7 +299,7 @@ The whole paper follows one **color coding**: a single theme in which each color
 
 - All figure files live in `figures/`.
 - Figures can be plotted with Python or drawn with TikZ (one `figures/<name>.tikz` per figure).
-- **One figure, one file, at most two layers.** This applies to every figure, not just the teaser. Each TikZ figure (diagram, teaser, pgfplots plot) is one file, `figures/<name>.tikz`, containing only the `tikzpicture`, and `main.tex` simply `\input`s it inside a `figure` environment that keeps the caption and label (see Project Layout). Never nest deeper:
+- **One figure, one file, at most two layers.** This applies to every figure, not just the teaser. Each TikZ figure (diagram, teaser, pgfplots plot) is one file, `figures/<name>.tikz`, containing only the `tikzpicture`, and `<venue>.tex` simply `\input`s it inside a `figure` environment that keeps the caption and label (see Project Layout). Never nest deeper:
   - a figure file must not `\input` or `\include` other files;
   - do not put a `tikzpicture` inside a node of another `tikzpicture`; use `scope` or `pic` instead.
 - If figures are plotted with Python, all plotting code goes in a single notebook, `figures/figures.ipynb`.
@@ -387,7 +390,7 @@ The teaser illustrates the overall framework and pipeline of the method.
 
 1. **Read the paper first.** Read the abstract, introduction, and method section, and the code if there is any, to understand the method's pipeline.
 2. **Draw the pipeline with TikZ.**
-   - Write it in `figures/teaser.tikz` and `\input{figures/teaser.tikz}` in `main.tex`, following the one-file, two-layer rule in Figures.
+   - Write it in `figures/teaser.tikz` and `\input{figures/teaser.tikz}` in `<venue>.tex`, following the one-file, two-layer rule in Figures.
    - Load TikZ libraries in `preamble.tex`, use the theme color names, and write math with the macros from `preamble.tex`.
    - Size it to `\columnwidth` or `\textwidth` through node and picture dimensions, not `\resizebox` or `scale`, which change the font size.
    - Place example images with `\node {\includegraphics[...]{...}};`.
@@ -529,10 +532,10 @@ git push origin --tags
 3. Build the marked version, with changes in `revcolor`, as `marked.pdf`:
 
    ```bash
-   latexmk -pdf -shell-escape -jobname=marked -usepretex='\def\marked{}' main.tex
+   latexmk -pdf -shell-escape -jobname=marked -usepretex='\def\marked{}' tpami.tex
    ```
 
-   A plain `latexmk -pdf main.tex` builds the clean version, without highlighting.
+   A plain `latexmk -pdf tpami.tex` builds the clean version, without highlighting.
 4. Before sending the revision, make sure nothing is missed. Compare against the previous tag with `git diff initial-submission -- '*.tex'`, and check that every change is inside `\rev{}`.
 
 ## Resubmitting to Another Journal
@@ -544,7 +547,7 @@ Before changing anything, tag the current version (see Submission and Revision),
 ### Template and Files
 
 - **The user downloads the journal's LaTeX template** from its official site and names the main file after the journal, `<journal>.tex` in lowercase (e.g. `tpami.tex`, `tip.tex`). Never write or reconstruct a template from memory. If it is missing, ask the user for it.
-- **`<journal>.tex` replaces `main.tex`** as the file that holds all text. Move the text into it section by section; the "all text stays in one file" rule still applies. Keep the old main file unchanged as a record of the previous submission.
+- **`<journal>.tex` becomes the file that holds all text** (see Project Layout). Move the text into it from the previous venue's file (e.g. `cvpr.tex`) section by section; the "all text stays in one file" rule still applies. Keep the previous venue's file unchanged as a record of that submission.
 - **Reuse `bib/`, `preamble.tex`, and `figures/`.** Do not copy or rebuild the `.bib` files. Drop only the packages that clash with the new template's class, and use the journal's bibliography style (e.g. `IEEEtran`).
 - **Re-measure the layout.** Column and text widths change with the template, so re-measure them from the compiled paper and redraw the figures at the new physical width (see Figures). Re-fit the tables.
 - **Remove traces of the previous venue:** its name, its anonymization or line numbers, "under review" notes, and venue-specific statements. Add what the new journal requires instead, e.g. keywords, author biographies and photos, or a data availability statement.
@@ -608,7 +611,7 @@ Write the response with the [TempLaTeX response template](https://github.com/int
   \usepackage{xr-hyper}        % in response.tex; use xr if hyperref is not loaded
   \usepackage{hyperref}
   \usepackage[capitalize]{cleveref}  % same names as in the paper's preamble
-  \externaldocument[M-]{main}  % reads main.aux; prefix M- avoids label clashes
+  \externaldocument[M-]{tpami} % reads tpami.aux, the manuscript's; prefix M- avoids label clashes
   ...
   As shown in \cref{M-tab:ablation} of the revised manuscript, ...
   ```

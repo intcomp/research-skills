@@ -35,15 +35,15 @@ For a double-anonymous (double-blind) venue, nothing in the submission may revea
 - **Self-citations.** Cite our own prior work in the third person, as if someone else wrote it: "Smith et al. [1] showed ...", not "our previous paper [1]", "our earlier work", or "as we showed in [1]". Do not drop the citation to hide it.
 - **Identifying content.** No names of internal datasets, labs, clusters, or company products that point to the authors ("trained on our company's cluster"), and no names, logos, or watermarks in images and screenshots.
 - **Hidden places.**
-  - PDF metadata: the author field set by `hyperref` (`pdfauthor`) or embedded figure PDFs (`pdfinfo main.pdf`, and on each figure);
+  - PDF metadata: the author field set by `hyperref` (`pdfauthor`) or embedded figure PDFs (`pdfinfo cvpr.pdf`, and on each figure);
   - file paths with usernames (e.g. `/home/<user>/`) in figures, logs, or code;
   - supplementary code: author headers, license names, absolute paths, and git history.
 
 **How to check.** Read the PDF and search it and the source for leaks, then confirm each hit by reading it in context:
 
 ```bash
-pdfinfo main.pdf
-pdftotext main.pdf - | grep -n -i -E 'github|https?://|@|universit|institut|acknowledg|our (previous|prior|earlier) (work|paper)'
+pdfinfo cvpr.pdf
+pdftotext cvpr.pdf - | grep -n -i -E 'github|https?://|@|universit|institut|acknowledg|our (previous|prior|earlier) (work|paper)'
 grep -n -i -E '\\thanks|\\author|acknowledg|github|pdfauthor' *.tex
 ```
 
@@ -108,10 +108,10 @@ Readers should never have to flip pages to find a float. Check every figure, tab
 
 **How to check.** For each float, compare two pages:
 
-- the page where the float appears, from the second field of its label in `main.aux` (e.g. `\newlabel{fig:overview}{{2}{3}...}` means Fig. 2 is on page 3);
-- the page of its first mention, found by searching the PDF text page by page (e.g. `pdftotext -f 3 -l 3 main.pdf -`) for "Fig. 2", "Figure 2", "Table 2", or "Algorithm 2".
+- the page where the float appears, from the second field of its label in the main file's `.aux` (e.g. `cvpr.aux`) (e.g. `\newlabel{fig:overview}{{2}{3}...}` means Fig. 2 is on page 3);
+- the page of its first mention, found by searching the PDF text page by page (e.g. `pdftotext -f 3 -l 3 cvpr.pdf -`) for "Fig. 2", "Figure 2", "Table 2", or "Algorithm 2".
 
-**Fixing.** Move the float's source in `main.tex` next to the paragraph that first mentions it (one page earlier for `figure*`), or change its placement option. Do not fix placement with `\vspace` hacks or by shrinking the float.
+**Fixing.** Move the float's source in the main file (e.g. `cvpr.tex`) next to the paragraph that first mentions it (one page earlier for `figure*`), or change its placement option. Do not fix placement with `\vspace` hacks or by shrinking the float.
 
 ## 8. References: Published Versions over arXiv
 

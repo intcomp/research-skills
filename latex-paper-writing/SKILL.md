@@ -240,6 +240,23 @@ Its pruning ratio is currently fixed per layer, and learning it adaptively is le
 - Entries added by AI go only into `bib/ai.bib`, never mixed with entries found by humans (e.g. `bib/refs.bib`). Likewise, never move human-found entries into `bib/ai.bib`.
 - Every entry in `bib/ai.bib` must cite a verifiable online source. Never fabricate or reconstruct an entry from memory.
 
+### Every Claim Needs Evidence
+
+**Rule:** every claim must be backed by evidence, especially in the Introduction. Write like a lawyer in court: a lawyer cannot just say that the client suffered a loss, but must show the evidence, and cannot just ask for a penalty, but must cite the chapter and article of the law. Before keeping any sentence, ask: what supports this?
+
+- **A claim about the field, prior methods, or the problem** (what methods do, what they lack, what the key challenge is) needs a citation.
+- **A claim about our own method** is supported by our experiments or analysis: point to them (e.g. "as shown in \cref{tab:ablation}").
+- **The citation does not have to state the claim word for word.** It is enough that the cited works show it. If a paper designs a new tokenizer, it shows that tokenizer design matters; otherwise the paper would not exist. Prefer well-known, representative works over obscure ones.
+- **Find the citations online** and add them as in Adding an Entry. If no supporting work can be found, soften or remove the claim instead of leaving it unsupported.
+
+Examples of sentences that need citations, and what to cite:
+
+| Claim | What to cite |
+|---|---|
+| However, many compact tokenizers still rely on decoding the full sequence. | Representative compact tokenizers that decode the full sequence. |
+| A key challenge is to design an action tokenizer that produces discrete tokens amenable to accurate autoregressive prediction while preserving the information needed for high-fidelity reconstruction of continuous actions. | Well-known works that design action tokenizers for this trade-off; their existence shows it is a key challenge. |
+| Although straightforward, this approach does not capture the correlations across timesteps and action dimensions. | The works that use this approach, and those that address these correlations. |
+
 ### Adding an Entry
 
 1. **Find the work online.** Use DOI, the publisher's page, arXiv, DBLP, ACL Anthology, OpenReview, or Semantic Scholar. Confirm the title, authors, venue, and year match.
